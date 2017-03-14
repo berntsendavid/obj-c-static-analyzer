@@ -106,8 +106,11 @@ def get_superclasses(file):
 superclasses = get_superclasses(header_file)
 inheritable_methods = find_file(superclasses)
 
-
 nrOvMethods = 0
+with open(file_name, 'r') as f:
+    s = f.read()
+    matches = re.findall('.*\[super .*\]',s)
+    nrOvMethods = len(matches)
 for method in methods:
     if method in inheritable_methods:
         nrOvMethods = nrOvMethods + 1
@@ -121,17 +124,29 @@ with open(file_name, 'r') as f:
 import_regexp = "#import " + '"' + class_name + ".h" + '"'
 affCoupling = len(sh.grep("-r", import_regexp, ".").splitlines()) - 1
 
+rfc = 0
+with open(file_name, 'r') as f:
+    s = f.read
+    matches = re.findall('\[',s)
+    rfc = len(matches) - 1
 
-print("____ Metrics data for: " + class_name + " ____")
-print("avgSize: " + str((loc-nrComments)/nrMethods))
-print("Comments (%): " + str(nrComments/float(loc)))
-print("Afferent coupling: " + str(affCoupling))
-print("Efferent coupling: " + str(effCoupling))
-print("Coupling: " + str(affCoupling+effCoupling))
-print("Polymorph (NORM/NOM): " + str(nrOvMethods/float(nrMethods)))
-print("Size: " + str(loc-nrComments))
-print(nrComments)
-print("\n")
+print(str(loc-nrComments) + "\t" +
+      str(nrMethods) + "\t" +
+      str(nrOvMethods) + "\t" +
+      str(len(inheritable_methods)) + "\t" +
+      str(rfc) + "\t" +
+      str(affCoupling) + "\t" +
+      str(effCoupling))
+
+# print("____ Metrics data for: " + class_name + " ____")
+# print("Size: " + str(loc-nrComments))
+# print("No. of methods: " + str(nrMethods))
+# print("No. of ovr. methods: " + str(nrOvMethods))
+# print("No. of inh. methods: " + str(len(inheritable_methods)))
+# print("Communication: " + str(rfc))
+# print("Afferent coupling: " + str(affCoupling))
+# print("Efferent coupling: " + str(effCoupling))
+# print("\n")
 
 # print("____ List of metrics for: " + class_name + " ____")
 # print("avgSize: " + str((loc-nrComments)/nrMethods))
