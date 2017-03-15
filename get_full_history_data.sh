@@ -2,11 +2,13 @@
 source venv/bin/activate
 touch commits.txt
 
-git log --format="%h" $1'/'$2'.m' >> commits.txt
+git log --format="%h" $1 >> commits.txt
+
+python get_data.py $1 # get the current commit first
 
 while read p; do
-    git checkout $p $1'/'$2'.m'
-    python get_data.py $1 $2
+    git checkout $p $1
+    python get_data.py $1
 done <commits.txt
 
 rm commits.txt

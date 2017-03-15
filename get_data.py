@@ -5,6 +5,9 @@ import sh
 import sys
 import os
 
+#####################
+# Comment functions #
+#####################
 def find_substring(substring, string):
     indices = []
     index = -1  # Begin at -1 so index + 1 is 0
@@ -26,13 +29,27 @@ def find_multiline_comments(string):
                 multiline_count = multiline_count + find_substring("\n", comment) + 1
     return multiline_count
 
-def get_imports(file):
-    return
 
+####################
+# Method functions #
+####################
 def get_method_name(method_list):
+    parsed_method_list = []
     for method in method_list:
         second_sep = method.find(':')
-        return method[method.index(')')+1:second_sep]
+        parsed_method_list.append(method[method.index(')')+1:second_sep])
+    return parsed_method_list
+
+def get_methods(file):
+    method_regex = '- \([A-Za-z \*]*.*'
+    methods = []
+    with open(file, 'r') as f:
+        s = f.read()
+        regex_methods = re.findall(method_regex, s)
+        for match in regex_methods:
+            methods.append(match)
+    return get_method_name(methods)
+
 
 def get_interface_methods(method_list, file):
     flist = open(file).readlines()
@@ -49,36 +66,10 @@ def get_interface_methods(method_list, file):
                 method_list.append(method)
     return method_list
 
-
-if len(sys.argv) >= 3:
-    class_name = sys.argv[2]
-    file_name = sys.argv[1] + '/' + class_name + '.m'
-    header_file = sys.argv[1] + '/' + class_name + '.h'
-else:
-    print("Usage examples: \n./get_data.py Controllers/Menu PRJMenuViewController")
-    exit(1)
-
-loc = 0
-with open(file_name, 'r') as f:
-    for line in f:
-        if line != '\n':
-            loc+=1
-
-nrComments=0
-with open(file_name, 'r') as f:
-    s = f.read()
-    nrComments = len(re.findall('\/\/', s)) + find_multiline_comments(s)
-
-nrMethods = 0
-methods = []
-with open(file_name, 'r') as f:
-    s = f.read()
-    regex_matches = re.findall('[-+] \(.*',s)
-    for match in regex_matches:
-        methods.append(match[match.find(')')+1:match.find(':')])
-    nrMethods = len(methods)
-
-def find_file(pattern):
+##################
+# File functions #
+##################
+def get_inheritable_methods(pattern):
     inherited_method_list = []
     for root, dirs, files in os.walk("../Classes"):
         for basename in files:
@@ -87,7 +78,7 @@ def find_file(pattern):
     return inherited_method_list
 
 
-def get_superclasses(file):
+def get_superclass_headers(file):
     class_list = []
     regex = str('#import \"PRJ.*\.h\"')
     with open(file, 'r') as f:
@@ -100,34 +91,75 @@ def get_superclasses(file):
         for root, dirs, files in os.walk("../Classes"):
             for basename in files:
                 if basename in class_list:
-                    class_list.append(get_superclasses(root+'/'+basename))
+                    class_list.append(get_superclass_headers(root+'/'+basename))
     return class_list
 
-superclasses = get_superclasses(header_file)
-inheritable_methods = find_file(superclasses)
+
+def get_superclass_methods(headers):
+    method_list = []
+    for root, dirs, files in os.walk("../Classes"):
+        for basename in files:
+            if basename in headers:
+                for m in get_methods(root+'/'+basename[:-1]+'m'):
+                    method_list.append(m)
+    return method_list
+
+
+#################
+# Program start #
+#################
+if len(sys.argv) >= 2:
+    file_name = sys.argv[1][sys.argv[1].rfind('/')+1:]
+    location = sys.argv[1][:sys.argv[1].rfind('/')+1]
+    file_path = sys.argv[1]
+    header_file_name = file_name[:-1] + 'h'
+    header_file_path = location + header_file_name
+else:
+    print("Usage examples: \n./get_data.py Controllers/Menu/PRJMenuViewController.m")
+    exit(1)
+
+loc = 0
+with open(file_path, 'r') as f:
+    for line in f:
+        if line != '\n':
+            loc+=1
+
+nrComments=0
+with open(file_path, 'r') as f:
+    s = f.read()
+    nrComments = len(re.findall('\/\/', s)) + find_multiline_comments(s)
+
+nrMethods = 0
+methods = []
+with open(file_path, 'r') as f:
+    s = f.read()
+    regex_matches = re.findall('[-+] \(.*',s)
+    for match in regex_matches:
+        methods.append(match[match.find(')')+1:match.find(':')])
+    nrMethods = len(methods)
+
+superclass_headers = get_superclass_headers(header_file_path)
+inheritable_methods = get_inheritable_methods(superclass_headers)
+superclass_methods = get_superclass_methods(superclass_headers)
 
 nrOvMethods = 0
-with open(file_name, 'r') as f:
-    s = f.read()
-    matches = re.findall('.*\[super .*\]',s)
-    nrOvMethods = len(matches)
 for method in methods:
-    if method in inheritable_methods:
+    if (method in inheritable_methods) or (method in superclass_methods):
         nrOvMethods = nrOvMethods + 1
 
 effCoupling = 0
-with open(file_name, 'r') as f:
+with open(file_path, 'r') as f:
     s = f.read()
     matches = re.findall('#import \".*\.h\"',s)
     effCoupling = len(matches) - 1
 
-import_regexp = "#import " + '"' + class_name + ".h" + '"'
+import_regexp = "#import " + '"' + header_file_name + '"'
 affCoupling = len(sh.grep("-r", import_regexp, ".").splitlines()) - 1
 
 rfc = 0
-with open(file_name, 'r') as f:
-    s = f.read
-    matches = re.findall('\[',s)
+with open(file_path, 'r') as f:
+    s = f.read()
+    matches = re.findall('\[', s)
     rfc = len(matches) - 1
 
 print(str(loc-nrComments) + "\t" +
