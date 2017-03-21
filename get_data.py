@@ -41,14 +41,13 @@ def get_method_name(method_list):
     return parsed_method_list
 
 def get_methods(file):
-    method_regex = '- \([A-Za-z \*]*.*'
-    methods = []
-    with open(file, 'r') as f:
-        s = f.read()
-        regex_methods = re.findall(method_regex, s)
-        for match in regex_methods:
-            methods.append(match)
-    return get_method_name(methods)
+    regex = re.compile('(^- \(.*[^;]({|\n)(.|\n)*?^})', re.MULTILINE)
+    return get_matches_from_file(regex, file)
+
+
+def get_method_headers(file):
+    regex = re.compile('(^- \(.*[^;]({|\n))', re.MULTILINE)
+    return get_matches_from_file(regex, file)
 
 
 def get_interface_methods(method_list, file):
@@ -67,6 +66,57 @@ def get_interface_methods(method_list, file):
     return method_list
 
 ##################
+# Nesting functions #
+##################
+def update_max_nesting(curr, max):
+    if (curr > max):
+        return curr
+    return max
+
+def update_nesting(line, curr):
+    opening_brace_regex = '{'
+    closing_brace_regex = '}'
+    opening = re.findall(opening_brace_regex, line)
+    closing = re.findall(closing_brace_regex, line)
+    return curr + len(opening) - len(closing)
+
+def get_nesting_level(file):
+    flist = open(file).readlines()
+    method_regex = '(if|for|while|else).*\('
+    parsing = False
+    current_nesting_depth = 0
+    max_nesting_depth = 0
+    for line in flist:
+        match = re.findall(method_regex, line);
+        if match:
+            parsing = True
+        if parsing:
+            current_nesting_depth = update_nesting(line, current_nesting_depth)
+            max_nesting_depth = update_max_nesting(current_nesting_depth, max_nesting_depth)
+            if (current_nesting_depth == 0):
+                parsing = False
+
+    return max_nesting_depth
+
+
+##################
+# LCOM functions #
+##################
+def get_attributes(file):
+    return False
+
+def get_matches_from_file(regex, file):
+    with open(file, 'r') as f:
+        s = f.read()
+        return re.findall(regex, s)
+
+def get_lcom(file):
+    regex = re.compile('(^- \(.*[^;]({|\n)(.|\n)*?^})', re.MULTILINE)
+    matches = get_matches_from_file(regex, file)
+    # attributes = get_attributes(file)
+    # m_a = 0
+
+##################
 # File functions #
 ##################
 def get_inheritable_methods(pattern):
@@ -75,34 +125,37 @@ def get_inheritable_methods(pattern):
         for basename in files:
             if basename in pattern:
                 inherited_method_list = get_interface_methods(inherited_method_list, root+'/'+basename)
-    return inherited_method_list
+    return [y for x in inherited_method_list for y in x]
 
 
 def get_superclass_headers(file):
-    class_list = []
+    header_list = []
     regex = str('#import \"PRJ.*\.h\"')
-    with open(file, 'r') as f:
-        s = f.read()
-        regex_superclasses = re.findall(regex, s)
-        for superclass in regex_superclasses:
-            index = superclass.index('"')
-            class_list.append(superclass[index+1:-1])
+    matches = get_matches_from_file(regex, file)
+    for m in matches:
+        index = m.index('"')
+        header_list.append(m[index+1:-1])
 
-        for root, dirs, files in os.walk("../Classes"):
-            for basename in files:
-                if basename in class_list:
-                    class_list.append(get_superclass_headers(root+'/'+basename))
-    return class_list
+    for root, dirs, files in os.walk("../Classes"):
+        for basename in files:
+            if basename in header_list:
+                for e in get_superclass_headers(root+'/'+basename):
+                    header_list.append(e)
+    return header_list
 
 
 def get_superclass_methods(headers):
     method_list = []
+    method_name_list = []
     for root, dirs, files in os.walk("../Classes"):
         for basename in files:
             if basename in headers:
-                for m in get_methods(root+'/'+basename[:-1]+'m'):
-                    method_list.append(m)
-    return method_list
+                for m in get_method_headers(root+'/'+basename[:-1]+'m'):
+                    method_list.append(m[0])
+    for m in method_list:
+        method_name = re.findall('- \(.*?\)\w+', m)[0]
+        method_name_list.append(method_name[method_name.index(')')+1:])
+    return method_name_list
 
 
 #################
@@ -117,6 +170,7 @@ if len(sys.argv) >= 2:
 else:
     print("Usage examples: \n./get_data.py Controllers/Menu/PRJMenuViewController.m")
     exit(1)
+
 
 loc = 0
 with open(file_path, 'r') as f:
@@ -153,7 +207,7 @@ with open(file_path, 'r') as f:
     matches = re.findall('#import \".*\.h\"',s)
     effCoupling = len(matches) - 1
 
-import_regexp = "#import " + '"' + header_file_name + '"'
+import_regexp = str("#import " + '"' + header_file_name + '"')
 affCoupling = len(sh.grep("-r", import_regexp, ".").splitlines()) - 1
 
 rfc = 0
@@ -162,13 +216,18 @@ with open(file_path, 'r') as f:
     matches = re.findall('\[', s)
     rfc = len(matches) - 1
 
+nsb = get_nesting_level(file_path)
+
+get_lcom(file_path)
+
 print(str(loc-nrComments) + "\t" +
       str(nrMethods) + "\t" +
       str(nrOvMethods) + "\t" +
       str(len(inheritable_methods)) + "\t" +
       str(rfc) + "\t" +
       str(affCoupling) + "\t" +
-      str(effCoupling))
+      str(effCoupling) + "\t" +
+      str(nsb))
 
 # print("____ Metrics data for: " + class_name + " ____")
 # print("Size: " + str(loc-nrComments))
