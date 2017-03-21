@@ -102,23 +102,58 @@ def get_nesting_level(file):
 ##################
 # LCOM functions #
 ##################
-def get_attributes(file):
-    return False
+def get_attr(match):
+    attr = []
+    front_delim = match.find('{')+1
+    back_delim = match.find('}')
+    rows = match[front_delim:back_delim].split('\n')
+    for r in rows:
+        if r is not "":
+            tmp = r.rsplit(None, 1)[-1]
+            attr.append(re.search('\w+', tmp).group(0))
+    return attr
 
+def get_attributes(file):
+    attributes = []
+    interface_regex = '(@interface(.|\n)*{(.|\n)*})'
+    property_regex = '(@property .*)'
+    interface_matches = get_matches_from_file(interface_regex, file)[0]
+    property_matches = get_matches_from_file(property_regex, file)
+    for m in interface_matches:
+        attributes.append(get_attr(m))
+    for m in property_matches:
+        attributes.append(get_attr(m))
+
+    return [y for x in attributes for y in x]
+
+
+def attribute_in_method(attribute, method):
+    if re.search(attribute, method) is None:
+        return 0
+    return 1
+
+def get_lcom(file, header):
+    matches = get_methods(file)
+    attributes = get_attributes(header)
+    methods = []
+    m_a = 0
+    for m in matches:
+        methods.append(m[0])
+    for a in attributes:
+        for m in methods:
+            m_a = float(m_a + attribute_in_method(a, m))
+    
+    return round(((m_a / len(attributes) - (len(methods))) / (1 - len(methods))),2)
+
+
+##################
+# File functions #
+##################
 def get_matches_from_file(regex, file):
     with open(file, 'r') as f:
         s = f.read()
         return re.findall(regex, s)
 
-def get_lcom(file):
-    regex = re.compile('(^- \(.*[^;]({|\n)(.|\n)*?^})', re.MULTILINE)
-    matches = get_matches_from_file(regex, file)
-    # attributes = get_attributes(file)
-    # m_a = 0
-
-##################
-# File functions #
-##################
 def get_inheritable_methods(pattern):
     inherited_method_list = []
     for root, dirs, files in os.walk("../Classes"):
@@ -218,7 +253,7 @@ with open(file_path, 'r') as f:
 
 nsb = get_nesting_level(file_path)
 
-get_lcom(file_path)
+lcom = get_lcom(file_path, header_file_path)
 
 print(str(loc-nrComments) + "\t" +
       str(nrMethods) + "\t" +
@@ -227,7 +262,8 @@ print(str(loc-nrComments) + "\t" +
       str(rfc) + "\t" +
       str(affCoupling) + "\t" +
       str(effCoupling) + "\t" +
-      str(nsb))
+      str(nsb) + "\t" +
+      str(lcom))
 
 # print("____ Metrics data for: " + class_name + " ____")
 # print("Size: " + str(loc-nrComments))
