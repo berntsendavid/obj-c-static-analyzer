@@ -117,10 +117,14 @@ def get_attributes(file):
     attributes = []
     interface_regex = '(@interface(.|\n)*{(.|\n)*})'
     property_regex = '(@property .*)'
-    interface_matches = get_matches_from_file(interface_regex, file)[0]
+    interface_matches = get_matches_from_file(interface_regex, file)
     property_matches = get_matches_from_file(property_regex, file)
     for m in interface_matches:
-        attributes.append(get_attr(m))
+        if isinstance(m, tuple):
+            attributes.append(get_attr(m[0]))
+        else:
+            attributes.append(get_attr(m))
+
     for m in property_matches:
         attributes.append(get_attr(m))
 
@@ -142,8 +146,9 @@ def get_lcom(file, header):
     for a in attributes:
         for m in methods:
             m_a = float(m_a + attribute_in_method(a, m))
-    
-    return round(((m_a / len(attributes) - (len(methods))) / (1 - len(methods))),2)
+    if (len(methods) is 0) or (len(attributes) is 0):
+        return 1
+    return ((m_a / len(attributes) - (len(methods))) / (1 - len(methods)))
 
 
 ##################
