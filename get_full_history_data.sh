@@ -7,7 +7,7 @@ git log --format="%h" $1 >> commits.txt
 python obj-c-static-analyzer/get_data.py $1 # get the current commit first
 
 while read p; do
-    git checkout $p $1
+    git checkout -f -q --detach $p
     python obj-c-static-analyzer/get_data.py $1
 done <commits.txt
 
