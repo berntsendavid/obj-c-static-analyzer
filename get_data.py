@@ -192,6 +192,14 @@ def get_superclass_methods(headers):
         method_name_list.append(method_name[method_name.index(')')+1:])
     return method_name_list
 
+# could be extended to search transitive subclasses
+def get_subclasses(name):
+    try:
+        res = sh.grep("-r", str("@interface \w* : " + name), ".")
+        return len(res.splitlines())
+    except:
+        return 0
+
 
 #################
 # Program start #
@@ -255,6 +263,8 @@ nsb = get_nesting_level(file_path)
 
 lcom = get_lcom(file_path, header_file_path)
 
+sub = get_subclasses(file_name[:-2])
+
 print(str(loc-nrComments) + "\t" +
       str(nrMethods) + "\t" +
       str(nrOvMethods) + "\t" +
@@ -263,7 +273,8 @@ print(str(loc-nrComments) + "\t" +
       str(affCoupling) + "\t" +
       str(effCoupling) + "\t" +
       str(nsb) + "\t" +
-      str(lcom))
+      str(lcom) + "\t" +
+      str(sub))
 
 # print("____ Metrics data for: " + class_name + " ____")
 # print("Size: " + str(loc-nrComments))
