@@ -146,7 +146,7 @@ def get_lcom(file, header):
     for a in attributes:
         for m in methods:
             m_a = float(m_a + attribute_in_method(a, m))
-    if (len(methods) is 0) or (len(attributes) is 0):
+    if (len(methods) is 1) or (len(attributes) is 0):
         return 1
     return ((m_a / len(attributes) - (len(methods))) / (1 - len(methods)))
 
@@ -155,9 +155,10 @@ def get_lcom(file, header):
 # File functions #
 ##################
 def get_matches_from_file(regex, file):
-    with open(file, 'r') as f:
-        s = f.read()
-        return re.findall(regex, s)
+    if os.path.isfile(file):
+        with open(file, 'r') as f:
+            s = f.read()
+            return re.findall(regex, s)
 
 def get_inheritable_methods(pattern):
     inherited_method_list = []
@@ -190,8 +191,10 @@ def get_superclass_methods(headers):
     for root, dirs, files in os.walk("../Classes"):
         for basename in files:
             if basename in headers:
-                for m in get_method_headers(root+'/'+basename[:-1]+'m'):
-                    method_list.append(m[0])
+                method_headers = get_method_headers(root+'/'+basename[:-1]+'m')
+                if method_headers is not None:
+                    for m in method_headers:
+                        method_list.append(m[0])
     for m in method_list:
         method_name = re.findall('- \(.*?\)\w+', m)[0]
         method_name_list.append(method_name[method_name.index(')')+1:])
